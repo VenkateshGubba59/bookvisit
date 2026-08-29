@@ -1,0 +1,147 @@
+"use client";
+
+import { FormEvent, useState } from "react";
+import { useMutation, useQuery } from "convex/react";
+import { CalendarCheck, Check, Clock3, MapPin } from "lucide-react";
+import { api } from "@/convex/_generated/api";
+import type { Id } from "@/convex/_generated/dataModel";
+
+const cities = ["Bengaluru", "Mumbai", "Delhi", "Hyderabad"];
+
+type Confirmation = {
+  bookingId: Id<"bookings">;
+  leadName: string;
+  phone: string;
+  city: string;
+  date: string;
+  time: string;
+  experienceCenterName: string;
+};
+
+const dateFormatter = new Intl.DateTimeFormat("en-IN", {
+  weekday: "short",
+  day: "numeric",
+  month: "short",
+});
+
+function readableDate(date: string) {
+  return dateFormatter.format(new Date(`${date}T12:00:00`));
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message.replace(/^.*Uncaught ConvexError:\s*/, "");
+  return "The booking could not be completed. Try again.";
+}
+
+export function BookingFlow() {
+  const [leadName, setLeadName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [city, setCity] = useState("");
+  const [slotId, setSlotId] = useState<Id<"slots"> | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+
+  const slots = useQuery(api.slots.listAvailableByCity, city ? { city } : "skip");
+  const createBooking = useMutation(api.bookings.create);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!slotId) {
+      setError("Choose a visit time to continue.");
+      return;
+    }
+    setError("");
+    setIsSubmitting(true);
+    try {
+      const result = await createBooking({ leadName, phone, city, slotId });
+      setConfirmation(result);
+    } catch (caught) {
+      setError(getErrorMessage(caught));
+      setSlotId(null);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (confirmation) {
+    return (
+      <section className="confirmation-panel" aria-labelledby="confirmation-title">
+        <div className="confirmation-icon"><Check size={30} strokeWidth={2.5} /></div>
+        <span className="eyebrow">Booking confirmed</span>
+        <h2 id="confirmation-title">We’ll see you there, {confirmation.leadName.split(" ")[0]}.</h2>
+        <p className="confirmation-copy">Your visit is reserved. This demo does not send a real message or calendar invite.</p>
+        <div className="ticket">
+          <div className="ticket-main">
+            <div><span>Date</span><strong>{readableDate(confirmation.date)}</strong></div>
+            <div><span>Time</span><strong>{confirmation.time}</strong></div>
+            <div className="ticket-center"><span>Experience center</span><strong>{confirmation.experienceCenterName}</strong></div>
+          </div>
+          <div className="ticket-stub">
+            <CalendarCheck size={24} />
+            <span>CONFIRMED</span>
+            <small>#{confirmation.bookingId.slice(-6).toUpperCase()}</small>
+          </div>
+        </div>
+        <button className="text-button" type="button" onClick={() => window.location.reload()}>Book another visit</button>
+      </section>
+    );
+  }
+
+  return (
+    <section className="form-panel" aria-labelledby="form-title">
+      <div className="step-heading">
+        <span>BOOK YOUR VISIT</span>
+        <span>TAKES ABOUT 1 MIN</span>
+      </div>
+      <h2 id="form-title">Where should we meet you?</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="field-grid">
+          <label className="field">
+            <span>Your name</span>
+            <input required minLength={2} autoComplete="name" value={leadName} onChange={(e) => setLeadName(e.target.value)} placeholder="e.g. Riya Mehta" />
+          </label>
+          <label className="field">
+            <span>Phone number</span>
+            <input required minLength={7} inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" />
+          </label>
+        </div>
+        <label className="field city-field">
+          <span>City</span>
+          <select required value={city} onChange={(e) => { setCity(e.target.value); setSlotId(null); }}>
+            <option value="" disabled>Choose your city</option>
+            {cities.map((item) => <option key={item}>{item}</option>)}
+          </select>
+        </label>
+
+        <div className="slot-section" aria-live="polite">
+          <div className="slot-label"><span>Available visits</span>{city ? <small><MapPin size={13} /> {city}</small> : null}</div>
+          {!city ? <div className="slot-placeholder">Choose a city to see available times.</div> : null}
+          {city && slots === undefined ? <div className="slot-placeholder">Finding open visits…</div> : null}
+          {slots?.length === 0 ? <div className="slot-placeholder">No open visits in {city}. Try another city.</div> : null}
+          {slots && slots.length > 0 ? (
+            <div className="slot-grid">
+              {slots.map((slot) => {
+                const selected = slotId === slot._id;
+                return (
+                  <button className="slot" data-selected={selected} key={slot._id} type="button" onClick={() => { setSlotId(slot._id); setError(""); }} aria-pressed={selected}>
+                    <span>{readableDate(slot.date)}</span>
+                    <strong><Clock3 size={15} /> {slot.time}</strong>
+                    {selected ? <Check className="slot-check" size={16} /> : null}
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+        </div>
+
+        {error ? <p className="form-error" role="alert">{error}</p> : null}
+        <button className="primary-button" type="submit" disabled={!leadName.trim() || !phone.trim() || !city || !slotId || isSubmitting}>
+          {isSubmitting ? "Reserving your visit…" : "Confirm booking"}
+          <span aria-hidden="true">→</span>
+        </button>
+        <p className="privacy-note">Dummy booking only. Nothing is sent outside this app.</p>
+      </form>
+    </section>
+  );
+}
