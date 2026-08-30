@@ -66,6 +66,17 @@ nav { display: flex; gap: 24px; }
 .voice-fields div { min-width: 0; padding: 14px 16px; background: var(--paper); }
 .voice-fields dt { margin-bottom: 5px; color: var(--ink-faint); font: 700 9px/1 Bahnschrift, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
 .voice-fields dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 700; }
+.voice-phone-form { margin-top: 20px; padding: 16px; background: var(--control); border: 1px solid var(--line); border-radius: 10px; }
+.voice-phone-form > label { display: block; margin-bottom: 8px; color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.voice-phone-row { min-height: 48px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; overflow: hidden; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+.voice-phone-row:focus-within { border-color: var(--cobalt); box-shadow: 0 0 0 3px rgba(36,87,230,.14); }
+.voice-phone-row:has(input[aria-invalid="true"]) { border-color: var(--danger); }
+.voice-phone-row > span { height: 28px; padding: 0 12px; display: flex; align-items: center; gap: 6px; color: var(--ink-soft); border-right: 1px solid var(--line); font-size: 13px; white-space: nowrap; }
+.voice-phone-row input { width: 100%; min-width: 0; height: 46px; padding: 0 12px; color: var(--ink); background: transparent; border: 0; outline: 0; }
+.voice-phone-row input::placeholder { color: var(--ink-faint); }
+.voice-phone-row button { align-self: stretch; min-width: 92px; padding: 0 14px; color: var(--paper); background: var(--cobalt); border: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+.voice-phone-row button:disabled { cursor: not-allowed; opacity: .42; }
+.voice-phone-form .field-error { display: block; margin-top: 8px; }
 .transcript-box { margin-top: 20px; padding: 16px; border-left: 3px solid var(--cobalt); background: var(--cobalt-wash); border-radius: 0 8px 8px 0; }
 .transcript-box span { color: var(--cobalt-deep); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
 .transcript-box p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
@@ -177,6 +188,8 @@ td > span { margin-top: 5px; color: var(--ink-faint); font-size: 12px; }
   .voice-fields { grid-template-columns: 1fr; }
   .voice-status { grid-template-columns: 44px 1fr; padding: 16px; }
   .voice-orb { width: 44px; height: 44px; }
+  .voice-phone-row { grid-template-columns: auto minmax(0, 1fr); }
+  .voice-phone-row button { min-height: 44px; grid-column: 1 / -1; }
   .slot-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .slot { min-width: 0; padding: 14px; }
   .ticket { grid-template-columns: 1fr; }

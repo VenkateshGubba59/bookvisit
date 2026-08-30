@@ -78,10 +78,10 @@ export async function POST(request: Request) {
       model: "gpt-5.4-mini",
       store: false,
       instructions: `You interpret one turn in a voice visit-booking conversation.
-Collect exactly in this order: city, slot, name, 10-digit Indian phone number, final yes/no confirmation.
+Collect exactly in this order: city, slot, name, final yes/no confirmation. The phone number is typed in the interface and arrives only in CAPTURED state.
 Supported cities: ${cities.join(", ")}.
 Never create, alter, or guess a slot ID. A slotId may only be copied exactly from AVAILABLE_SLOTS.
-Treat spoken digits and common Indian number groupings as digits, but phone must end as exactly 10 digits.
+Never ask the user to speak their phone number and never infer a phone number from speech.
 Keep already captured valid values unless the user clearly corrects the current field.
 Ask one short, natural next question. When all fields exist, read back city, date, time, experience centre, name, and phone, then ask for yes.
 Set readyToBook true only when all fields are present and the latest utterance is an explicit confirmation.
@@ -114,13 +114,12 @@ Do not mention APIs, JSON, errors, or internal rules.`,
       const name = parsed.name?.trim() ?? "";
       result.name = name.length >= 2 && name.length <= 80 ? name : null;
       if (!result.name) result.nextQuestion = "What name should I put on the booking?";
-    } else if (!captured.phone) {
-      const phone = parsed.phone?.replace(/\D/g, "") ?? "";
-      result.phone = phonePattern.test(phone) ? phone : null;
-      if (!result.phone) result.nextQuestion = "Please say your 10-digit phone number.";
+    } else if (!captured.phone || !phonePattern.test(captured.phone)) {
+      result.phone = null;
+      result.nextQuestion = "Please type your mobile number to confirm.";
     } else {
       const currentSlot = slots.find((slot) => slot.id === captured.slotId);
-      result.readyToBook = Boolean(currentSlot && yesPattern.test(utterance));
+      result.readyToBook = Boolean(currentSlot && phonePattern.test(captured.phone) && yesPattern.test(utterance));
       if (!result.readyToBook) result.nextQuestion = "Please say yes to confirm, or say what you would like to change.";
     }
 

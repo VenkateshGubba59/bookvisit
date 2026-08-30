@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { FormEvent } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { Mic, MicOff, Volume2 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
@@ -46,6 +47,9 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
   const [isListening, setIsListening] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [message, setMessage] = useState("");
+  const [awaitingPhone, setAwaitingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState("");
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   const slots = useQuery(api.slots.listAvailableByCity, captured.city ? { city: captured.city } : "skip");
   const voiceSlots = useMemo(() => {
@@ -155,7 +159,7 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
     }
   }, [exitToForm, stopListening]);
 
-  const speak = useCallback((words: string) => {
+  const speak = useCallback((words: string, resumeListening = true) => {
     stopListening();
     setLastQuestion(words);
     setLiveWords("");
@@ -163,8 +167,8 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
     utterance.lang = "en-IN";
     utterance.rate = 0.95;
     if (indianEnglishVoiceRef.current) utterance.voice = indianEnglishVoiceRef.current;
-    utterance.onend = () => listen();
-    utterance.onerror = () => listen();
+    utterance.onend = () => { if (resumeListening) listen(); };
+    utterance.onerror = () => { if (resumeListening) listen(); };
     window.speechSynthesis.cancel();
     window.speechSynthesis.speak(utterance);
   }, [listen, stopListening]);
@@ -223,12 +227,10 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
         return;
       }
 
-      if (!previous.phone && next.phone) {
-        const chosen = currentSlots.find((slot) => slot._id === next.slotId);
-        if (chosen) {
-          speakRef.current(`Please confirm. The visit is for ${next.name}, in ${next.city}, on ${readableVoiceDate(chosen.date)} at ${chosen.time}, at ${chosen.experienceCenterName}. The phone number is ${next.phone.split("").join(" ")}. Say yes to book.`);
-          return;
-        }
+      if (!previous.name && next.name && !next.phone) {
+        setAwaitingPhone(true);
+        speakRef.current("Please type your mobile number to confirm.", false);
+        return;
       }
       speakRef.current(reply.nextQuestion);
     } catch {
@@ -237,6 +239,25 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
       setIsThinking(false);
     }
   }, [createBooking, onBooked]);
+
+  function handlePhoneSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPhoneTouched(true);
+    if (validatePhone(phoneInput)) return;
+
+    const current = capturedRef.current;
+    const chosen = (slotsRef.current ?? []).find((slot) => slot._id === current.slotId);
+    if (!current.city || !current.slotId || !current.name || !chosen) {
+      setMessage("Something went wrong. Please use the form instead.");
+      return;
+    }
+
+    const next = { ...current, phone: phoneInput };
+    capturedRef.current = next;
+    setCaptured(next);
+    setAwaitingPhone(false);
+    speakRef.current(`Please confirm. The visit is for ${next.name}, in ${next.city}, on ${readableVoiceDate(chosen.date)} at ${chosen.time}, at ${chosen.experienceCenterName}. The phone number is ${next.phone.split("").join(" ")}. Say yes to book.`);
+  }
 
   const handleUtteranceRef = useRef(handleUtterance);
   useEffect(() => {
@@ -290,6 +311,30 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
         <div><dt>Name</dt><dd>{captured.name ?? "Waiting…"}</dd></div>
         <div><dt>Phone</dt><dd>{captured.phone ? `+91 ${captured.phone}` : "Waiting…"}</dd></div>
       </dl>
+
+      {awaitingPhone ? (
+        <form className="voice-phone-form" onSubmit={handlePhoneSubmit}>
+          <label htmlFor="voice-phone">Mobile number</label>
+          <div className="voice-phone-row">
+            <span aria-hidden="true">🇮🇳 <strong>+91</strong></span>
+            <input
+              autoFocus
+              id="voice-phone"
+              inputMode="numeric"
+              autoComplete="tel-national"
+              maxLength={10}
+              value={phoneInput}
+              onBlur={() => setPhoneTouched(true)}
+              onChange={(event) => setPhoneInput(event.target.value.replace(/\D/g, "").slice(0, 10))}
+              placeholder="98765 43210"
+              aria-invalid={phoneTouched && Boolean(validatePhone(phoneInput))}
+              aria-describedby={phoneTouched && validatePhone(phoneInput) ? "voice-phone-error" : undefined}
+            />
+            <button type="submit" disabled={Boolean(validatePhone(phoneInput))}>Continue</button>
+          </div>
+          {phoneTouched && validatePhone(phoneInput) ? <small className="field-error" id="voice-phone-error">Enter exactly 10 digits.</small> : null}
+        </form>
+      ) : null}
 
       <div className="transcript-box" aria-live="polite">
         <span>What you said</span>
