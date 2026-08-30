@@ -2,7 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { CalendarCheck, Check, Clock3, MapPin } from "lucide-react";
+import { Check, Clock3, MapPin } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { validateName, validatePhone } from "@/lib/booking-validation";
@@ -81,7 +81,7 @@ export function BookingFlow() {
             <div className="ticket-center"><span>Experience center</span><strong>{confirmation.experienceCenterName}</strong></div>
           </div>
           <div className="ticket-stub">
-            <CalendarCheck size={24} />
+            <span className="reference-success" aria-hidden="true"><Check size={15} strokeWidth={2.5} /></span>
             <span>CONFIRMED</span>
             <small>#{confirmation.bookingId.slice(-6).toUpperCase()}</small>
           </div>
@@ -100,14 +100,17 @@ export function BookingFlow() {
       <h2 id="form-title">Where should we meet you?</h2>
       <form onSubmit={handleSubmit}>
         <div className="field-grid">
-          <label className="field">
+          <label className="field field-full">
             <span>Your name</span>
             <input required autoComplete="name" value={leadName} onBlur={() => setNameTouched(true)} onChange={(e) => setLeadName(e.target.value)} placeholder="e.g. Riya Mehta" aria-invalid={nameTouched && Boolean(nameError)} aria-describedby={nameTouched && nameError ? "name-error" : undefined} />
             {nameTouched && nameError ? <small className="field-error" id="name-error">{nameError}</small> : null}
           </label>
           <label className="field">
             <span>Phone number</span>
-            <input required inputMode="tel" autoComplete="tel" value={phone} onBlur={() => setPhoneTouched(true)} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" aria-invalid={phoneTouched && Boolean(phoneError)} aria-describedby={phoneTouched && phoneError ? "phone-error" : undefined} />
+            <div className="phone-control">
+              <span className="phone-prefix" aria-hidden="true">🇮🇳 <strong>+91</strong></span>
+              <input required inputMode="numeric" autoComplete="tel-national" maxLength={10} value={phone} onBlur={() => setPhoneTouched(true)} onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} placeholder="98765 43210" aria-label="10-digit phone number" aria-invalid={phoneTouched && Boolean(phoneError)} aria-describedby={phoneTouched && phoneError ? "phone-error" : undefined} />
+            </div>
             {phoneTouched && phoneError ? <small className="field-error" id="phone-error">{phoneError}</small> : null}
           </label>
         </div>

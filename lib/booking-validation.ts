@@ -8,11 +8,11 @@ export function validateName(value: string) {
 }
 
 export function normalizePhone(value: string) {
-  return value.replace(/[\s()-]/g, "");
+  return `+91${value}`;
 }
 
 export function validatePhone(value: string) {
-  return /^(?:\+91)?\d{10}$/.test(normalizePhone(value))
+  return /^\d{10}$/.test(value)
     ? ""
-    : "Enter 10 digits, with an optional +91.";
+    : "Enter exactly 10 digits.";
 }

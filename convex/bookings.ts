@@ -11,9 +11,9 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const leadName = args.leadName.trim();
-    const phone = normalizePhone(args.phone);
     if (validateName(leadName)) throw new ConvexError("Invalid name");
-    if (validatePhone(phone)) throw new ConvexError("Invalid phone number");
+    if (validatePhone(args.phone)) throw new ConvexError("Invalid phone number");
+    const phone = normalizePhone(args.phone);
 
     const slot = await ctx.db.get(args.slotId);
     if (!slot || slot.status !== "available")

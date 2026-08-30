@@ -2,8 +2,6 @@ import { BookingFlow } from "@/components/booking-flow";
 
 export default function Home() {
   return (
-    <>
-      <p className="build-week-note">Demo product built for GrowthX Build Week.</p>
       <main className="booking-page">
         <section className="intro-panel">
           <div>
@@ -22,6 +20,5 @@ export default function Home() {
         </section>
         <BookingFlow />
       </main>
-    </>
   );
 }

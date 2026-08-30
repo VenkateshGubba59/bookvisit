@@ -14,16 +14,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en">
       <body>
         <ConvexClientProvider>
-          <header className="site-header">
-            <Link className="brand" href="/" aria-label="Atelier Visits home">
-              <span className="brand-mark"><CalendarDays size={18} strokeWidth={2} /></span>
-              <span>ATELIER / VISITS</span>
-            </Link>
-            <nav aria-label="Primary navigation">
-              <Link className="nav-link" href="/">Book a visit</Link>
-            </nav>
-          </header>
-          {children}
+          <div className="app-shell">
+            <header className="site-header">
+              <Link className="brand" href="/" aria-label="Atelier Visits home">
+                <span className="brand-mark"><CalendarDays size={18} strokeWidth={2} /></span>
+                <span>ATELIER / VISITS</span>
+              </Link>
+              <nav aria-label="Primary navigation">
+                <Link className="nav-link" href="/">Book a visit</Link>
+              </nav>
+            </header>
+            <div className="page-content">{children}</div>
+            <footer className="site-footer">Demo product built for GrowthX Build Week.</footer>
+          </div>
         </ConvexClientProvider>
       </body>
     </html>
