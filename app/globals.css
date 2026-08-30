@@ -49,6 +49,30 @@ nav { display: flex; gap: 24px; }
 
 .form-panel, .confirmation-panel { padding: clamp(48px, 7vw, 112px) clamp(32px, 8vw, 128px); background: var(--paper); }
 .form-panel { display: flex; flex-direction: column; justify-content: center; }
+.voice-trigger { width: 100%; min-height: 56px; margin-bottom: 28px; padding: 0 18px; display: grid; grid-template-columns: 24px 1fr auto; align-items: center; gap: 10px; color: var(--paper); background: var(--ink); border: 0; border-radius: 10px; font-weight: 700; text-align: left; cursor: pointer; box-shadow: 0 6px 16px rgba(21,34,56,.16); transition: transform 140ms cubic-bezier(.23,1,.32,1), background-color 140ms; }
+.voice-trigger:hover { background: #22334d; }
+.voice-trigger:active { transform: scale(.98); }
+.voice-trigger:focus-visible, .type-instead:focus-visible, .voice-error button:focus-visible { outline: 3px solid rgba(36,87,230,.28); outline-offset: 3px; }
+.voice-topline { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+.type-instead { min-height: 44px; padding: 0 4px; color: var(--cobalt); background: transparent; border: 0; font-size: 13px; font-weight: 700; cursor: pointer; }
+.voice-panel h2 { margin-bottom: 32px; }
+.voice-status { min-height: 108px; padding: 20px; display: grid; grid-template-columns: 48px 1fr; align-items: center; gap: 16px; color: var(--ink); background: var(--control); border: 1px solid var(--line); border-radius: 12px; }
+.voice-status[data-listening="true"] { border-color: rgba(36,87,230,.45); box-shadow: 0 0 0 3px rgba(36,87,230,.1); }
+.voice-orb { width: 48px; height: 48px; display: grid; place-items: center; color: var(--paper); background: var(--cobalt); border-radius: 50%; }
+.voice-status[data-listening="true"] .voice-orb { animation: voice-pulse 1.4s ease-out infinite; }
+.voice-status strong { font-size: 14px; }
+.voice-status p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.45; }
+.voice-fields { margin: 20px 0 0; display: grid; grid-template-columns: 1fr 1fr; gap: 1px; overflow: hidden; background: var(--line); border: 1px solid var(--line); border-radius: 10px; }
+.voice-fields div { min-width: 0; padding: 14px 16px; background: var(--paper); }
+.voice-fields dt { margin-bottom: 5px; color: var(--ink-faint); font: 700 9px/1 Bahnschrift, sans-serif; letter-spacing: .1em; text-transform: uppercase; }
+.voice-fields dd { margin: 0; overflow-wrap: anywhere; font-size: 13px; font-weight: 700; }
+.transcript-box { margin-top: 20px; padding: 16px; border-left: 3px solid var(--cobalt); background: var(--cobalt-wash); border-radius: 0 8px 8px 0; }
+.transcript-box span { color: var(--cobalt-deep); font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.transcript-box p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.5; }
+.voice-error { margin-top: 18px; padding: 16px; color: var(--danger); background: #fff5f4; border-radius: 8px; }
+.voice-error p { margin: 0 0 10px; font-size: 13px; }
+.voice-error button { min-height: 44px; padding: 0; color: var(--cobalt); background: transparent; border: 0; font-weight: 700; cursor: pointer; }
+@keyframes voice-pulse { 0% { box-shadow: 0 0 0 0 rgba(36,87,230,.25); } 70%, 100% { box-shadow: 0 0 0 12px rgba(36,87,230,0); } }
 .step-heading { display: flex; justify-content: space-between; padding-bottom: 16px; border-bottom: 1px solid var(--line); color: var(--ink-faint); font: 700 10px/1 Bahnschrift, sans-serif; letter-spacing: .13em; }
 .form-panel h2, .confirmation-panel h2 { margin: 32px 0 44px; font: 400 clamp(34px, 4vw, 50px)/1.05 Georgia, serif; letter-spacing: -.035em; text-wrap: balance; }
 .field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -150,6 +174,9 @@ td > span { margin-top: 5px; color: var(--ink-faint); font-size: 12px; }
   .intro-panel { min-height: 480px; padding: 48px 24px; }
   .form-panel, .confirmation-panel { min-height: auto; padding: 48px 24px 64px; }
   .field-grid { grid-template-columns: 1fr; }
+  .voice-fields { grid-template-columns: 1fr; }
+  .voice-status { grid-template-columns: 44px 1fr; padding: 16px; }
+  .voice-orb { width: 44px; height: 44px; }
   .slot-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .slot { min-width: 0; padding: 14px; }
   .ticket { grid-template-columns: 1fr; }

@@ -1,33 +1,15 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { Check, Clock3, MapPin } from "lucide-react";
+import { Check, Clock3, MapPin, Mic } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import { validateName, validatePhone } from "@/lib/booking-validation";
+import { BookingConfirmation, readableBookingDate, type BookingConfirmationData } from "@/components/booking-confirmation";
+import { VoiceBookingPanel } from "@/components/voice-booking-panel";
 
 const cities = ["Bengaluru", "Mumbai", "Delhi", "Hyderabad"];
-
-type Confirmation = {
-  bookingId: Id<"bookings">;
-  leadName: string;
-  phone: string;
-  city: string;
-  date: string;
-  time: string;
-  experienceCenterName: string;
-};
-
-const dateFormatter = new Intl.DateTimeFormat("en-IN", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-});
-
-function readableDate(date: string) {
-  return dateFormatter.format(new Date(`${date}T12:00:00`));
-}
 
 export function BookingFlow() {
   const [leadName, setLeadName] = useState("");
@@ -38,7 +20,16 @@ export function BookingFlow() {
   const [slotId, setSlotId] = useState<Id<"slots"> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
-  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
+  const [confirmation, setConfirmation] = useState<BookingConfirmationData | null>(null);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(false);
+
+  useEffect(() => {
+    const checkSupport = window.setTimeout(() => {
+      setSpeechSupported(Boolean(window.SpeechRecognition ?? window.webkitSpeechRecognition) && "speechSynthesis" in window);
+    }, 0);
+    return () => window.clearTimeout(checkSupport);
+  }, []);
 
   const slots = useQuery(api.slots.listAvailableByCity, city ? { city } : "skip");
   const createBooking = useMutation(api.bookings.create);
@@ -68,31 +59,14 @@ export function BookingFlow() {
   }
 
   if (confirmation) {
-    return (
-      <section className="confirmation-panel" aria-labelledby="confirmation-title">
-        <div className="confirmation-icon"><Check size={30} strokeWidth={2.5} /></div>
-        <span className="eyebrow">Booking confirmed</span>
-        <h2 id="confirmation-title">We’ll see you there, {confirmation.leadName.split(" ")[0]}.</h2>
-        <p className="confirmation-copy">Your visit is reserved. Keep these details handy for your appointment.</p>
-        <div className="ticket">
-          <div className="ticket-main">
-            <div><span>Date</span><strong>{readableDate(confirmation.date)}</strong></div>
-            <div><span>Time</span><strong>{confirmation.time}</strong></div>
-            <div className="ticket-center"><span>Experience center</span><strong>{confirmation.experienceCenterName}</strong></div>
-          </div>
-          <div className="ticket-stub">
-            <span className="reference-success" aria-hidden="true"><Check size={15} strokeWidth={2.5} /></span>
-            <span>CONFIRMED</span>
-            <small>#{confirmation.bookingId.slice(-6).toUpperCase()}</small>
-          </div>
-        </div>
-        <button className="text-button" type="button" onClick={() => window.location.reload()}>Book another visit</button>
-      </section>
-    );
+    return <BookingConfirmation confirmation={confirmation} />;
   }
+
+  if (voiceOpen) return <VoiceBookingPanel onExit={() => setVoiceOpen(false)} onBooked={setConfirmation} />;
 
   return (
     <section className="form-panel" aria-labelledby="form-title">
+      {speechSupported ? <button className="voice-trigger" type="button" onClick={() => setVoiceOpen(true)}><Mic size={20} /> Speak to book <span aria-hidden="true">→</span></button> : null}
       <div className="step-heading">
         <span>BOOK YOUR VISIT</span>
         <span>TAKES ABOUT 1 MIN</span>
@@ -133,7 +107,7 @@ export function BookingFlow() {
                 const selected = slotId === slot._id;
                 return (
                   <button className="slot" data-selected={selected} key={slot._id} type="button" onClick={() => { setSlotId(slot._id); setError(""); }} aria-pressed={selected}>
-                    <span>{readableDate(slot.date)}</span>
+                    <span>{readableBookingDate(slot.date)}</span>
                     <strong><Clock3 size={15} /> {slot.time}</strong>
                     {selected ? <Check className="slot-check" size={16} /> : null}
                   </button>
