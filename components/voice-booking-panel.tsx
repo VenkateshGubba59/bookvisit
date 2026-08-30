@@ -6,7 +6,6 @@ import { Mic, MicOff, Volume2 } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 import type { BookingConfirmationData } from "@/components/booking-confirmation";
-import { readableBookingDate } from "@/components/booking-confirmation";
 import { validateName, validatePhone } from "@/lib/booking-validation";
 
 type Captured = { city: string | null; slotId: string | null; name: string | null; phone: string | null };
@@ -14,6 +13,30 @@ type VoiceReply = Captured & { nextQuestion: string; readyToBook: boolean };
 
 const initialCaptured: Captured = { city: null, slotId: null, name: null, phone: null };
 const firstQuestion = "Which city would you like to visit: Bengaluru, Mumbai, Delhi, or Hyderabad?";
+const voiceDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+});
+
+function readableVoiceDate(date: string) {
+  return voiceDateFormatter.format(new Date(`${date}T12:00:00`));
+}
+
+function timeInMinutes(time: string) {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  const hours = Number(match[1]) % 12 + (match[3].toUpperCase() === "PM" ? 12 : 0);
+  return hours * 60 + Number(match[2]);
+}
+
+function preferredIndianEnglishVoice(voices: SpeechSynthesisVoice[]) {
+  const indianEnglishVoices = voices.filter((voice) => voice.lang.toLowerCase() === "en-in");
+  return indianEnglishVoices.find((voice) => /neerja/i.test(voice.name))
+    ?? indianEnglishVoices.find((voice) => /heera|veena/i.test(voice.name))
+    ?? indianEnglishVoices[0]
+    ?? null;
+}
 
 export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; onBooked: (data: BookingConfirmationData) => void }) {
   const [captured, setCaptured] = useState<Captured>(initialCaptured);
@@ -25,6 +48,12 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
   const [message, setMessage] = useState("");
 
   const slots = useQuery(api.slots.listAvailableByCity, captured.city ? { city: captured.city } : "skip");
+  const voiceSlots = useMemo(() => {
+    if (!slots) return slots;
+    return [...slots]
+      .sort((left, right) => left.date.localeCompare(right.date) || timeInMinutes(left.time) - timeInMinutes(right.time))
+      .slice(0, 2);
+  }, [slots]);
   const createBooking = useMutation(api.bookings.create);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -32,13 +61,24 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
   const waitingForSlotsRef = useRef(false);
   const startedRef = useRef(false);
   const mountedRef = useRef(true);
+  const indianEnglishVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const transcriptRef = useRef<string[]>([]);
   const capturedRef = useRef<Captured>(initialCaptured);
-  const slotsRef = useRef<typeof slots>(undefined);
+  const slotsRef = useRef<typeof voiceSlots>(undefined);
 
   useEffect(() => { capturedRef.current = captured; }, [captured]);
-  useEffect(() => { slotsRef.current = slots; }, [slots]);
+  useEffect(() => { slotsRef.current = voiceSlots; }, [voiceSlots]);
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
+
+  useEffect(() => {
+    const loadVoices = () => {
+      indianEnglishVoiceRef.current = preferredIndianEnglishVoice(window.speechSynthesis.getVoices());
+    };
+
+    loadVoices();
+    window.speechSynthesis.addEventListener("voiceschanged", loadVoices);
+    return () => window.speechSynthesis.removeEventListener("voiceschanged", loadVoices);
+  }, []);
 
   const stopListening = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
@@ -121,7 +161,8 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
     setLiveWords("");
     const utterance = new SpeechSynthesisUtterance(words);
     utterance.lang = "en-IN";
-    utterance.rate = 0.96;
+    utterance.rate = 0.95;
+    if (indianEnglishVoiceRef.current) utterance.voice = indianEnglishVoiceRef.current;
     utterance.onend = () => listen();
     utterance.onerror = () => listen();
     window.speechSynthesis.cancel();
@@ -185,7 +226,7 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
       if (!previous.phone && next.phone) {
         const chosen = currentSlots.find((slot) => slot._id === next.slotId);
         if (chosen) {
-          speakRef.current(`Please confirm. The visit is for ${next.name}, in ${next.city}, on ${readableBookingDate(chosen.date)} at ${chosen.time}, at ${chosen.experienceCenterName}. The phone number is ${next.phone.split("").join(" ")}. Say yes to book.`);
+          speakRef.current(`Please confirm. The visit is for ${next.name}, in ${next.city}, on ${readableVoiceDate(chosen.date)} at ${chosen.time}, at ${chosen.experienceCenterName}. The phone number is ${next.phone.split("").join(" ")}. Say yes to book.`);
           return;
         }
       }
@@ -204,15 +245,15 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
   }, [handleUtterance]);
 
   useEffect(() => {
-    if (!waitingForSlotsRef.current || !captured.city || slots === undefined) return;
+    if (!waitingForSlotsRef.current || !captured.city || voiceSlots === undefined) return;
     waitingForSlotsRef.current = false;
-    if (slots.length === 0) {
+    if (voiceSlots.length === 0) {
       speakRef.current(`There are no open visits in ${captured.city}. Please use the form to choose another city.`);
       return;
     }
-    const options = slots.map((slot, index) => `Option ${index + 1}: ${readableBookingDate(slot.date)} at ${slot.time}`).join(". ");
-    speakRef.current(`Here are the available visits in ${captured.city}. ${options}. Which option would you like?`);
-  }, [captured.city, slots]);
+    const options = voiceSlots.map((slot, index) => `Option ${index + 1}: ${readableVoiceDate(slot.date)} at ${slot.time}`).join(". ");
+    speakRef.current(`${options}. Which option would you like?`);
+  }, [captured.city, voiceSlots]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -228,7 +269,7 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
     };
   }, []);
 
-  const selectedSlot = useMemo(() => slots?.find((slot) => slot._id === captured.slotId), [captured.slotId, slots]);
+  const selectedSlot = useMemo(() => voiceSlots?.find((slot) => slot._id === captured.slotId), [captured.slotId, voiceSlots]);
 
   return (
     <section className="form-panel voice-panel" aria-labelledby="voice-title">
@@ -245,7 +286,7 @@ export function VoiceBookingPanel({ onExit, onBooked }: { onExit: () => void; on
 
       <dl className="voice-fields">
         <div><dt>City</dt><dd>{captured.city ?? "Waiting…"}</dd></div>
-        <div><dt>Visit</dt><dd>{selectedSlot ? `${readableBookingDate(selectedSlot.date)}, ${selectedSlot.time}` : "Waiting…"}</dd></div>
+        <div><dt>Visit</dt><dd>{selectedSlot ? `${readableVoiceDate(selectedSlot.date)}, ${selectedSlot.time}` : "Waiting…"}</dd></div>
         <div><dt>Name</dt><dd>{captured.name ?? "Waiting…"}</dd></div>
         <div><dt>Phone</dt><dd>{captured.phone ? `+91 ${captured.phone}` : "Waiting…"}</dd></div>
       </dl>
