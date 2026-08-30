@@ -5,6 +5,7 @@ import { useMutation, useQuery } from "convex/react";
 import { CalendarCheck, Check, Clock3, MapPin } from "lucide-react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
+import { validateName, validatePhone } from "@/lib/booking-validation";
 
 const cities = ["Bengaluru", "Mumbai", "Delhi", "Hyderabad"];
 
@@ -28,14 +29,11 @@ function readableDate(date: string) {
   return dateFormatter.format(new Date(`${date}T12:00:00`));
 }
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message.replace(/^.*Uncaught ConvexError:\s*/, "");
-  return "The booking could not be completed. Try again.";
-}
-
 export function BookingFlow() {
   const [leadName, setLeadName] = useState("");
   const [phone, setPhone] = useState("");
+  const [nameTouched, setNameTouched] = useState(false);
+  const [phoneTouched, setPhoneTouched] = useState(false);
   const [city, setCity] = useState("");
   const [slotId, setSlotId] = useState<Id<"slots"> | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,9 +42,15 @@ export function BookingFlow() {
 
   const slots = useQuery(api.slots.listAvailableByCity, city ? { city } : "skip");
   const createBooking = useMutation(api.bookings.create);
+  const nameError = validateName(leadName);
+  const phoneError = validatePhone(phone);
+  const contactIsValid = !nameError && !phoneError;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setNameTouched(true);
+    setPhoneTouched(true);
+    if (!contactIsValid) return;
     if (!slotId) {
       setError("Choose a visit time to continue.");
       return;
@@ -56,9 +60,8 @@ export function BookingFlow() {
     try {
       const result = await createBooking({ leadName, phone, city, slotId });
       setConfirmation(result);
-    } catch (caught) {
-      setError(getErrorMessage(caught));
-      setSlotId(null);
+    } catch {
+      setError("Something went wrong, please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -70,7 +73,7 @@ export function BookingFlow() {
         <div className="confirmation-icon"><Check size={30} strokeWidth={2.5} /></div>
         <span className="eyebrow">Booking confirmed</span>
         <h2 id="confirmation-title">We’ll see you there, {confirmation.leadName.split(" ")[0]}.</h2>
-        <p className="confirmation-copy">Your visit is reserved. This demo does not send a real message or calendar invite.</p>
+        <p className="confirmation-copy">Your visit is reserved. Keep these details handy for your appointment.</p>
         <div className="ticket">
           <div className="ticket-main">
             <div><span>Date</span><strong>{readableDate(confirmation.date)}</strong></div>
@@ -99,11 +102,13 @@ export function BookingFlow() {
         <div className="field-grid">
           <label className="field">
             <span>Your name</span>
-            <input required minLength={2} autoComplete="name" value={leadName} onChange={(e) => setLeadName(e.target.value)} placeholder="e.g. Riya Mehta" />
+            <input required autoComplete="name" value={leadName} onBlur={() => setNameTouched(true)} onChange={(e) => setLeadName(e.target.value)} placeholder="e.g. Riya Mehta" aria-invalid={nameTouched && Boolean(nameError)} aria-describedby={nameTouched && nameError ? "name-error" : undefined} />
+            {nameTouched && nameError ? <small className="field-error" id="name-error">{nameError}</small> : null}
           </label>
           <label className="field">
             <span>Phone number</span>
-            <input required minLength={7} inputMode="tel" autoComplete="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" />
+            <input required inputMode="tel" autoComplete="tel" value={phone} onBlur={() => setPhoneTouched(true)} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. +91 98765 43210" aria-invalid={phoneTouched && Boolean(phoneError)} aria-describedby={phoneTouched && phoneError ? "phone-error" : undefined} />
+            {phoneTouched && phoneError ? <small className="field-error" id="phone-error">{phoneError}</small> : null}
           </label>
         </div>
         <label className="field city-field">
@@ -136,11 +141,11 @@ export function BookingFlow() {
         </div>
 
         {error ? <p className="form-error" role="alert">{error}</p> : null}
-        <button className="primary-button" type="submit" disabled={!leadName.trim() || !phone.trim() || !city || !slotId || isSubmitting}>
+        <button className="primary-button" type="submit" disabled={!contactIsValid || !city || !slotId || isSubmitting}>
           {isSubmitting ? "Reserving your visit…" : "Confirm booking"}
           <span aria-hidden="true">→</span>
         </button>
-        <p className="privacy-note">Dummy booking only. Nothing is sent outside this app.</p>
+        <p className="privacy-note">We’ll use your number only to coordinate your visit.</p>
       </form>
     </section>
   );

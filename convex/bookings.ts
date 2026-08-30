@@ -1,5 +1,6 @@
 import { ConvexError, v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { env, mutation, query } from "./_generated/server";
+import { normalizePhone, validateName, validatePhone } from "../lib/booking-validation";
 
 export const create = mutation({
   args: {
@@ -10,10 +11,9 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const leadName = args.leadName.trim();
-    const phone = args.phone.trim();
-    if (leadName.length < 2) throw new ConvexError("Enter your full name");
-    if (!/^[0-9+() -]{7,18}$/.test(phone))
-      throw new ConvexError("Enter a valid phone number");
+    const phone = normalizePhone(args.phone);
+    if (validateName(leadName)) throw new ConvexError("Invalid name");
+    if (validatePhone(phone)) throw new ConvexError("Invalid phone number");
 
     const slot = await ctx.db.get(args.slotId);
     if (!slot || slot.status !== "available")
@@ -47,8 +47,12 @@ export const create = mutation({
 });
 
 export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { adminPassword: v.string() },
+  handler: async (ctx, { adminPassword }) => {
+    const configuredPassword = (env as unknown as Record<string, string | undefined>).ADMIN_PASSWORD;
+    if (!configuredPassword || adminPassword !== configuredPassword) {
+      throw new ConvexError("Unauthorized");
+    }
     const bookings = await ctx.db
       .query("bookings")
       .withIndex("by_created_at")
